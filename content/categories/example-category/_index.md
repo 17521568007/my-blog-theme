@@ -1,6 +1,6 @@
 ---
-title: 分类
-description: 分类说明
+title: 示例分类
+description: 示例分类说明
 image:
 
 # Badge style

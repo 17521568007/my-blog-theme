@@ -3,6 +3,8 @@ title: "Redis生产事件总结"
 date: 2025-12-16 00:00:00+0000
 description: "关于生产的一次切换导致的生产事件" 
 image: redis.png
+mermaid: true
+math: true
 categories: ["Redis"]
 ---
 

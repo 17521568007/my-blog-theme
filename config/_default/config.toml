@@ -1,11 +1,11 @@
 # Change baseurl before deploy
-baseurl = "https://demo.stack.jimmycai.com"
-languageCode = "en-us"
-title = "Hugo Theme Stack Starter"
+baseurl = "https://studious-telegram-x4x5jjrwr77fp9r4-1313.app.github.dev/"
+languageCode = "zh-cn"
+title = "Ccino的个人博客"
 
 # Theme i18n support
 # Available values: en, fr, id, ja, ko, pt-br, zh-cn, zh-tw, es, de, nl, it, th, el, uk, ar
-defaultContentLanguage = "en"
+defaultContentLanguage = "zh-cn"
 
 # Set hasCJKLanguage to true if DefaultContentLanguage is in [zh-cn ja ko]
 # This will make .Summary and .WordCount behave correctly for CJK languages.

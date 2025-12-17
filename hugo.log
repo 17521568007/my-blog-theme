@@ -1,0 +1,24 @@
+nohup: ignoring input
+Watching for changes in /workspaces/my-blog-theme/{assets,content,static}
+Watching for config changes in /workspaces/my-blog-theme/config/_default, /workspaces/my-blog-theme/go.mod
+Start building sites … 
+hugo v0.152.2-6abdacad3f3fe944ea42177844469139e81feda6+extended linux/amd64 BuildDate=2025-10-24T15:31:49Z VendorInfo=gohugoio
+
+WARN  The "gist" shortcode was deprecated in v0.143.0 and will be removed in a future release. See https://gohugo.io/shortcodes/gist for instructions to create a replacement.
+
+                  │ ZH - CN 
+──────────────────┼─────────
+ Pages            │      40 
+ Paginator pages  │       2 
+ Non-page files   │       5 
+ Static files     │       1 
+ Processed images │      17 
+ Aliases          │      14 
+ Cleaned          │       0 
+
+Built in 311 ms
+Environment: "development"
+Serving pages from disk
+Running in Fast Render Mode. For full rebuilds on change: hugo server --disableFastRender
+Web Server is available at https://studious-telegram-x4x5jjrwr77fp9r4-1313.app.github.dev/ (bind address 0.0.0.0) 
+Press Ctrl+C to stop

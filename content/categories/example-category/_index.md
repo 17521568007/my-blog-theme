@@ -1,6 +1,6 @@
 ---
-title: Example Category
-description: A description of this category
+title: 分类
+description: 分类说明
 image:
 
 # Badge style

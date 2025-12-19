@@ -1,0 +1,1366 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="关于生产的一次切换导致的生产事件"><title>Redis生产事件总结</title><link rel=canonical href=https://sturdy-space-chainsaw-595gwwvqgjvf4vpx-1313.app.github.dev/p/redis%E7%94%9F%E4%BA%A7%E4%BA%8B%E4%BB%B6%E6%80%BB%E7%BB%93/><link rel=stylesheet href=/scss/style.min.b0e76e98cdd4f7082d1fc36f7af7e0843a81201db2197c03ca426751dc923735.css><meta property='og:title' content="Redis生产事件总结"><meta property='og:description' content="关于生产的一次切换导致的生产事件"><meta property='og:url' content='https://sturdy-space-chainsaw-595gwwvqgjvf4vpx-1313.app.github.dev/p/redis%E7%94%9F%E4%BA%A7%E4%BA%8B%E4%BB%B6%E6%80%BB%E7%BB%93/'><meta property='og:site_name' content='Ccino的个人博客'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2025-12-16T00:00:00+00:00'><meta property='article:modified_time' content='2025-12-16T00:00:00+00:00'><meta property='og:image' content='https://sturdy-space-chainsaw-595gwwvqgjvf4vpx-1313.app.github.dev/redis.jpeg'><meta name=twitter:title content="Redis生产事件总结"><meta name=twitter:description content="关于生产的一次切换导致的生产事件"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://sturdy-space-chainsaw-595gwwvqgjvf4vpx-1313.app.github.dev/redis.jpeg'><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/toux_hu_6634aef6e8005c85.jpg width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>💙</span></figure><div class=site-meta><h1 class=site-name><a href=/>Ccino的个人博客</a></h1><h2 class=site-description>命运的礼盒，只要还没打开就还有更大的惊喜等着你</h2></div></header><ol class=menu-social><li><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href=https://twitter.com target=_blank title=Twitter rel=me><svg class="icon icon-tabler icon-tabler-brand-twitter" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M22 4.01c-1 .49-1.98.689-3 .99-1.121-1.265-2.783-1.335-4.38-.737S11.977 6.323 12 8v1c-3.245.083-6.135-1.395-8-4 0 0-4.182 7.433 4 11-1.872 1.247-3.739 2.088-6 2 3.308 1.803 6.913 2.423 10.034 1.517 3.58-1.04 6.522-3.723 7.651-7.742a13.84 13.84.0 00.497-3.753C20.18 7.773 21.692 5.25 22 4.009z"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E9%93%BE/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友链</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#事件概述>事件概述</a><ol><li><a href=#事件时间>事件时间</a></li><li><a href=#影响范围>影响范围</a></li></ol></li><li><a href=#事件背景>事件背景</a><ol><li><a href=#历史操作2022年>历史操作（2022年）</a></li><li><a href=#事件触发条件>事件触发条件</a></li></ol></li><li><a href=#影响分析>影响分析</a><ol><li><a href=#直接表现>直接表现</a></li><li><a href=#配置分析>配置分析</a></li></ol></li><li><a href=#根本原因分析>根本原因分析</a><ol><li><a href=#第一层原因架构配置缺陷>第一层原因：架构配置缺陷</a></li><li><a href=#第二层原因客户端框架限制>第二层原因：客户端框架限制</a></li><li><a href=#第三层原因集群配置与业务要求的矛盾>第三层原因：集群配置与业务要求的矛盾</a></li></ol></li><li><a href=#解决方案与修复过程>解决方案与修复过程</a><ol><li><a href=#第一阶段紧急恢复应用启动>第一阶段：紧急恢复（应用启动）</a></li><li><a href=#第二阶段长效解决拓扑管理>第二阶段：长效解决（拓扑管理）</a></li></ol></li><li><a href=#经验教训与改进措施>经验教训与改进措施</a><ol><li><a href=#配置管理改进>配置管理改进</a></li><li><a href=#框架升级与优化>框架升级与优化</a></li><li><a href=#监控与告警完善>监控与告警完善</a></li><li><a href=#应急响应改进>应急响应改进</a></li></ol></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/redis%E7%94%9F%E4%BA%A7%E4%BA%8B%E4%BB%B6%E6%80%BB%E7%BB%93/><img src=/redis.jpeg loading=lazy alt="Featured image of post Redis生产事件总结"></a></div><div class=article-details><header class=article-category><a href=/categories/redis/>Redis</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/redis%E7%94%9F%E4%BA%A7%E4%BA%8B%E4%BB%B6%E6%80%BB%E7%BB%93/>Redis生产事件总结</a></h2><h3 class=article-subtitle>关于生产的一次切换导致的生产事件</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2025-12-16T00:00:00Z>Dec 16, 2025</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 12 分钟</time></div></footer></div></header><section class=article-content><h1 id=redis生产事件总结报告>Redis生产事件总结报告</h1><h2 id=事件概述>事件概述</h2><h3 id=事件时间>事件时间</h3><ul><li><strong>触发时间</strong>：2025年4月</li><li><strong>恢复时间</strong>：2025年4月(当天)</li><li><strong>持续时间</strong>：约1小时</li></ul><h3 id=影响范围>影响范围</h3><ul><li><strong>系统影响</strong>：Redis集群不可用</li><li><strong>业务影响</strong>：依赖Redis的相关金融服务功能受影响</li><li><strong>应用影响</strong>：全部应用重启时无法正常启动</li></ul><h2 id=事件背景>事件背景</h2><h3 id=历史操作2022年>历史操作（2022年）</h3><p>2022年进行的Redis集群切换演练中，由于操作配置问题，导致两个主节点（master）被部署在同一数据中心。这一配置隐患一直存在但未暴露，直到本次事件触发。</p><h3 id=事件触发条件>事件触发条件</h3><p>2025年4月，该数据中心发生故障，导致位于同一中心的两个master节点同时不可用。根据Redis集群的故障转移机制：</p><ul><li>一半的slot（哈希槽）正常完成了自动转移</li><li>另一半slot因两个master在同一位置，无法满足故障转移条件，导致迁移失败</li></ul><h2 id=影响分析>影响分析</h2><h3 id=直接表现>直接表现</h3><ol><li><strong>集群状态异常</strong>：部分数据分片不可用</li><li><strong>应用启动失败</strong>：所有应用程序重启时均无法正常启动</li><li><strong>服务不可用</strong>：依赖Redis的业务功能受限或不可用</li></ol><h3 id=配置分析>配置分析</h3><p><strong>关键配置</strong>：<code>cluster-require-full-coverage=yes</code></p><ul><li><strong>配置含义</strong>：要求集群所有slot都必须被覆盖时，集群才对外提供写服务</li><li><strong>金融系统要求</strong>：银行金融系统因强一致性要求，必须设置此参数为yes</li><li><strong>问题表现</strong>：当部分slot不可用时，整个集群拒绝写操作，导致服务不可用</li></ul><h2 id=根本原因分析>根本原因分析</h2><h3 id=第一层原因架构配置缺陷>第一层原因：架构配置缺陷</h3><ol><li><strong>违反部署原则</strong>：两个master节点部署在同一数据中心，违反高可用部署原则</li><li><strong>历史遗留隐患</strong>：2022年演练后的配置未恢复，隐患长期存在</li></ol><h3 id=第二层原因客户端框架限制>第二层原因：客户端框架限制</h3><p><strong>自研框架中Jedis 2.9版本存在以下问题：</strong></p><div class=table-wrapper><table><thead><tr><th style=text-align:left>问题项</th><th style=text-align:left>具体表现</th><th style=text-align:left>影响程度</th></tr></thead><tbody><tr><td style=text-align:left>拓扑自动刷新</td><td style=text-align:left>不支持自动刷新集群拓扑</td><td style=text-align:left>高</td></tr><tr><td style=text-align:left>启动连接策略</td><td style=text-align:left>启动时连接所有配置节点</td><td style=text-align:left>严重</td></tr><tr><td style=text-align:left>故障容忍度</td><td style=text-align:left>遇到故障节点直接失败</td><td style=text-align:left>严重</td></tr></tbody></table></div><p><strong>启动流程缺陷</strong>：</p><pre class=mermaid>
+   graph TD
+ A[应用启动] --> B[Jedis初始化]
+    B --> C[连接所有配置节点]
+    C --> D{遇到故障节点?}
+    D -->|是| E[连接失败]
+    D -->|否| F[启动成功]
+    E --> G[启动终止]
+</pre><p>初始化槽位缓存时 JedisClusterConnectionHandler中源码如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>private</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>initializeSlotsCache</span><span class=p>(</span><span class=n>Set</span><span class=o>&lt;</span><span class=n>HostAndPort</span><span class=o>&gt;</span><span class=w> </span><span class=n>startNodes</span><span class=p>,</span><span class=w> </span><span class=n>GenericObjectPoolConfig</span><span class=w> </span><span class=n>poolConfig</span><span class=p>,</span><span class=w> </span><span class=n>String</span><span class=w> </span><span class=n>password</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>for</span><span class=w> </span><span class=p>(</span><span class=n>HostAndPort</span><span class=w> </span><span class=n>hostAndPort</span><span class=w> </span><span class=p>:</span><span class=w> </span><span class=n>startNodes</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=n>Jedis</span><span class=w> </span><span class=n>jedis</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>Jedis</span><span class=p>(</span><span class=n>hostAndPort</span><span class=p>.</span><span class=na>getHost</span><span class=p>(),</span><span class=w> </span><span class=n>hostAndPort</span><span class=p>.</span><span class=na>getPort</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>password</span><span class=w> </span><span class=o>!=</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>jedis</span><span class=p>.</span><span class=na>auth</span><span class=p>(</span><span class=n>password</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>cache</span><span class=p>.</span><span class=na>discoverClusterNodesAndSlots</span><span class=p>(</span><span class=n>jedis</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>break</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>JedisConnectionException</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// try next nodes</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=p>}</span><span class=w> </span><span class=k>finally</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>jedis</span><span class=w> </span><span class=o>!=</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=n>jedis</span><span class=p>.</span><span class=na>close</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>每一个节点都会在auth时进行contect连接，也就导致了启动时连接故障节点抛出JedisConnectionException最终启动失败。</p><h3 id=第三层原因集群配置与业务要求的矛盾>第三层原因：集群配置与业务要求的矛盾</h3><ul><li><strong>业务要求</strong>：强一致性 → <code>cluster-require-full-coverage=yes</code></li><li><strong>可用性要求</strong>：部分故障时仍需服务 → 与上述配置矛盾</li><li><strong>缺乏应用中间方案</strong>：部分功能未设计redis集群故障时的降级策略</li></ul><h2 id=解决方案与修复过程>解决方案与修复过程</h2><h3 id=第一阶段紧急恢复应用启动>第一阶段：紧急恢复（应用启动）</h3><p><strong>方案</strong>：修改应用启动健康检查机制</p><ol><li><strong>健康检查过滤</strong>：启动时跳过配置中的故障节点</li><li><strong>实现方式</strong>：<ul><li>在Jedis初始化前增加节点健康检查</li><li>仅连接健康的节点完成初始化</li><li>记录故障节点信息用于后续恢复</li></ul></li></ol><p><strong>修复代码示例</strong>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kn>import</span><span class=w> </span><span class=nn>org.slf4j.Logger</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.slf4j.LoggerFactory</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.stereotype.Component</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>java.util.HashSet</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>java.util.Set</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>java.util.concurrent.CopyOnWriteArraySet</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * @author huqinuo
+</span></span></span><span class=line><span class=cl><span class=cm> * @version 1.0
+</span></span></span><span class=line><span class=cl><span class=cm> * @description Redis节点上下文管理器
+</span></span></span><span class=line><span class=cl><span class=cm> * @data 2025/12/1 9:25
+</span></span></span><span class=line><span class=cl><span class=cm> */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nd>@Component</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kd>class</span> <span class=nc>RedisNodeContext</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>Logger</span><span class=w> </span><span class=n>log</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>LoggerFactory</span><span class=p>.</span><span class=na>getLogger</span><span class=p>(</span><span class=n>RedisNodeContext</span><span class=p>.</span><span class=na>class</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>CopyOnWriteArraySet</span><span class=o>&lt;&gt;</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>allNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>CopyOnWriteArraySet</span><span class=o>&lt;&gt;</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 初始化方法，从静态数据加载
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>initializeFromStaticData</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>RedisHealthChecker</span><span class=p>.</span><span class=na>isHealthCheckCompleted</span><span class=p>())</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>this</span><span class=p>.</span><span class=na>allNodes</span><span class=p>.</span><span class=na>clear</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>this</span><span class=p>.</span><span class=na>allNodes</span><span class=p>.</span><span class=na>addAll</span><span class=p>(</span><span class=n>RedisHealthChecker</span><span class=p>.</span><span class=na>getAllNodes</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>this</span><span class=p>.</span><span class=na>unhealthyNodes</span><span class=p>.</span><span class=na>clear</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>this</span><span class=p>.</span><span class=na>unhealthyNodes</span><span class=p>.</span><span class=na>addAll</span><span class=p>(</span><span class=n>RedisHealthChecker</span><span class=p>.</span><span class=na>getUnhealthyNodes</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;RedisNodeContext initialized from static data: {}/{} nodes healthy&#34;</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=n>getHealthyNodeCount</span><span class=p>(),</span><span class=w> </span><span class=n>allNodes</span><span class=p>.</span><span class=na>size</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 添加不健康节点
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>addUnhealthyNode</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>add</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 移除不健康节点（节点恢复时调用）
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>removeUnhealthyNode</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>remove</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 获取所有不健康节点
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=nf>getUnhealthyNodes</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashSet</span><span class=o>&lt;&gt;</span><span class=p>(</span><span class=n>unhealthyNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 检查节点是否不健康
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=nf>isNodeUnhealthy</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>contains</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 设置所有节点
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>setAllNodes</span><span class=p>(</span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>nodes</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>allNodes</span><span class=p>.</span><span class=na>clear</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>allNodes</span><span class=p>.</span><span class=na>addAll</span><span class=p>(</span><span class=n>nodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 获取所有节点
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=nf>getAllNodes</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashSet</span><span class=o>&lt;&gt;</span><span class=p>(</span><span class=n>allNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 添加单个节点
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>addNode</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>allNodes</span><span class=p>.</span><span class=na>add</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 获取健康节点数量
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>int</span><span class=w> </span><span class=nf>getHealthyNodeCount</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>allNodes</span><span class=p>.</span><span class=na>size</span><span class=p>()</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>size</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 获取不健康节点数量
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>int</span><span class=w> </span><span class=nf>getUnhealthyNodeCount</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>size</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kn>package</span><span class=w> </span><span class=nn>open.ref.redis</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>自研包.RedisFactory</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.beans.factory.annotation.Autowired</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.context.annotation.Bean</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.context.annotation.Configuration</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.context.annotation.DependsOn</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.scheduling.annotation.EnableScheduling</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * @author huqinuo
+</span></span></span><span class=line><span class=cl><span class=cm> * @version 1.0
+</span></span></span><span class=line><span class=cl><span class=cm> * @description Redis配置类(健康检查使用)
+</span></span></span><span class=line><span class=cl><span class=cm> * @data 2025/12/1 15:31
+</span></span></span><span class=line><span class=cl><span class=cm> */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nd>@Configuration</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nd>@EnableScheduling</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kd>class</span> <span class=nc>RedisClusterConfig</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * redis节点上下文
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@Bean</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@DependsOn</span><span class=p>(</span><span class=s>&#34;redisHealthChecker&#34;</span><span class=p>)</span><span class=w>  </span><span class=c1>// 确保在健康检查后执行</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=n>RedisNodeContext</span><span class=w> </span><span class=nf>redisNodeContext</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>RedisNodeContext</span><span class=w> </span><span class=n>context</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>RedisNodeContext</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>context</span><span class=p>.</span><span class=na>initializeFromStaticData</span><span class=p>();</span><span class=w> </span><span class=c1>// 从静态数据初始化</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>context</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 拓扑刷新器
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@Bean</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@DependsOn</span><span class=p>(</span><span class=s>&#34;redisNodeContext&#34;</span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=n>RedisClusterTopologyRefresher</span><span class=w> </span><span class=nf>redisClusterTopologyRefresher</span><span class=p>(</span><span class=nd>@Autowired</span><span class=w> </span><span class=n>RedisNodeContext</span><span class=w> </span><span class=n>redisNodeContext</span><span class=p>,</span><span class=w> </span><span class=n>RedisFactory</span><span class=w> </span><span class=n>redisFactory</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>RedisClusterTopologyRefresher</span><span class=p>(</span><span class=n>redisNodeContext</span><span class=p>,</span><span class=n>redisFactory</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span><span class=lnt>142
+</span><span class=lnt>143
+</span><span class=lnt>144
+</span><span class=lnt>145
+</span><span class=lnt>146
+</span><span class=lnt>147
+</span><span class=lnt>148
+</span><span class=lnt>149
+</span><span class=lnt>150
+</span><span class=lnt>151
+</span><span class=lnt>152
+</span><span class=lnt>153
+</span><span class=lnt>154
+</span><span class=lnt>155
+</span><span class=lnt>156
+</span><span class=lnt>157
+</span><span class=lnt>158
+</span><span class=lnt>159
+</span><span class=lnt>160
+</span><span class=lnt>161
+</span><span class=lnt>162
+</span><span class=lnt>163
+</span><span class=lnt>164
+</span><span class=lnt>165
+</span><span class=lnt>166
+</span><span class=lnt>167
+</span><span class=lnt>168
+</span><span class=lnt>169
+</span><span class=lnt>170
+</span><span class=lnt>171
+</span><span class=lnt>172
+</span><span class=lnt>173
+</span><span class=lnt>174
+</span><span class=lnt>175
+</span><span class=lnt>176
+</span><span class=lnt>177
+</span><span class=lnt>178
+</span><span class=lnt>179
+</span><span class=lnt>180
+</span><span class=lnt>181
+</span><span class=lnt>182
+</span><span class=lnt>183
+</span><span class=lnt>184
+</span><span class=lnt>185
+</span><span class=lnt>186
+</span><span class=lnt>187
+</span><span class=lnt>188
+</span><span class=lnt>189
+</span><span class=lnt>190
+</span><span class=lnt>191
+</span><span class=lnt>192
+</span><span class=lnt>193
+</span><span class=lnt>194
+</span><span class=lnt>195
+</span><span class=lnt>196
+</span><span class=lnt>197
+</span><span class=lnt>198
+</span><span class=lnt>199
+</span><span class=lnt>200
+</span><span class=lnt>201
+</span><span class=lnt>202
+</span><span class=lnt>203
+</span><span class=lnt>204
+</span><span class=lnt>205
+</span><span class=lnt>206
+</span><span class=lnt>207
+</span><span class=lnt>208
+</span><span class=lnt>209
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kn>package</span><span class=w> </span><span class=nn>open.ref.redis</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>open.svc.dict.Const</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.slf4j.Logger</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.slf4j.LoggerFactory</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.beans.BeansException</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.beans.factory.config.BeanFactoryPostProcessor</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.beans.factory.config.ConfigurableListableBeanFactory</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.context.EnvironmentAware</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.core.env.ConfigurableEnvironment</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.core.env.Environment</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.core.env.MapPropertySource</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.stereotype.Component</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>redis.clients.jedis.Jedis</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>java.util.*</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * @author huqinuo
+</span></span></span><span class=line><span class=cl><span class=cm> * @version 1.0
+</span></span></span><span class=line><span class=cl><span class=cm> * @description Redis集群连接健康检查
+</span></span></span><span class=line><span class=cl><span class=cm> * @data 2025/12/1 10:02
+</span></span></span><span class=line><span class=cl><span class=cm> */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nd>@Component</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kd>class</span> <span class=nc>RedisHealthChecker</span><span class=w> </span><span class=kd>implements</span><span class=w> </span><span class=n>BeanFactoryPostProcessor</span><span class=p>,</span><span class=w> </span><span class=n>EnvironmentAware</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=n>ConfigurableEnvironment</span><span class=w> </span><span class=n>environment</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>Logger</span><span class=w> </span><span class=n>log</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>LoggerFactory</span><span class=p>.</span><span class=na>getLogger</span><span class=p>(</span><span class=n>RedisHealthChecker</span><span class=p>.</span><span class=na>class</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashSet</span><span class=o>&lt;&gt;</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>allNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashSet</span><span class=o>&lt;&gt;</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=kt>int</span><span class=w> </span><span class=n>CONNECTION_TIMEOUT</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>5000</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=n>healthCheckCompleted</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@Override</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>setEnvironment</span><span class=p>(</span><span class=n>Environment</span><span class=w> </span><span class=n>environment</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>this</span><span class=p>.</span><span class=na>environment</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=p>(</span><span class=n>ConfigurableEnvironment</span><span class=p>)</span><span class=w> </span><span class=n>environment</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@Override</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>postProcessBeanFactory</span><span class=p>(</span><span class=n>ConfigurableListableBeanFactory</span><span class=w> </span><span class=n>beanFactory</span><span class=p>)</span><span class=w> </span><span class=kd>throws</span><span class=w> </span><span class=n>BeansException</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>healthCheckCompleted</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=p>;</span><span class=w> </span><span class=c1>// 避免重复执行</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=o>!</span><span class=n>isRedisClusterEnabled</span><span class=p>())</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Redis cluster is not enabled, skip health check&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>healthCheckCompleted</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>oriRedisNodeUrl</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>getOriRedisNodeUrl</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>Objects</span><span class=p>.</span><span class=na>isNull</span><span class=p>(</span><span class=n>oriRedisNodeUrl</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>warn</span><span class=p>(</span><span class=s>&#34;Application does not have Redis configuration&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>healthCheckCompleted</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 执行健康检查并更新配置</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>performInitialHealthCheck</span><span class=p>(</span><span class=n>oriRedisNodeUrl</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>healthCheckCompleted</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 注册静态上下文到BeanFactory</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>registerNodeContextBean</span><span class=p>(</span><span class=n>beanFactory</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 注册节点上下文到BeanFactory
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>registerNodeContextBean</span><span class=p>(</span><span class=n>ConfigurableListableBeanFactory</span><span class=w> </span><span class=n>beanFactory</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>RedisNodeContext</span><span class=w> </span><span class=n>nodeContext</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>RedisNodeContext</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>nodeContext</span><span class=p>.</span><span class=na>setAllNodes</span><span class=p>(</span><span class=k>new</span><span class=w> </span><span class=n>HashSet</span><span class=o>&lt;&gt;</span><span class=p>(</span><span class=n>allNodes</span><span class=p>));</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>for</span><span class=w> </span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=w> </span><span class=p>:</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>nodeContext</span><span class=p>.</span><span class=na>addUnhealthyNode</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>beanFactory</span><span class=p>.</span><span class=na>registerSingleton</span><span class=p>(</span><span class=s>&#34;redisNodeContext&#34;</span><span class=p>,</span><span class=w> </span><span class=n>nodeContext</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;RedisNodeContext registered as singleton bean&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 执行初始健康检查
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>performInitialHealthCheck</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>oriRedisNodeUrl</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 保存所有原始节点</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>allNodes</span><span class=p>.</span><span class=na>clear</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>allNodes</span><span class=p>.</span><span class=na>addAll</span><span class=p>(</span><span class=n>Arrays</span><span class=p>.</span><span class=na>asList</span><span class=p>(</span><span class=n>oriRedisNodeUrl</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=n>Const</span><span class=p>.</span><span class=na>Symbol</span><span class=p>.</span><span class=na>Comma</span><span class=p>)));</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Starting initial Redis cluster health check for {} nodes&#34;</span><span class=p>,</span><span class=w> </span><span class=n>allNodes</span><span class=p>.</span><span class=na>size</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 过滤健康节点</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>List</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>healthyNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>filterHealthyClusterNodes</span><span class=p>(</span><span class=n>oriRedisNodeUrl</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>healthyNodes</span><span class=p>.</span><span class=na>isEmpty</span><span class=p>())</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;No healthy Redis cluster nodes available&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>healthyRedisNodeUrl</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>String</span><span class=p>.</span><span class=na>join</span><span class=p>(</span><span class=n>Const</span><span class=p>.</span><span class=na>Symbol</span><span class=p>.</span><span class=na>Comma</span><span class=p>,</span><span class=w> </span><span class=n>healthyNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 如果有不健康节点，更新配置</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=o>!</span><span class=n>oriRedisNodeUrl</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>healthyRedisNodeUrl</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>updateRedisConfiguration</span><span class=p>(</span><span class=n>healthyRedisNodeUrl</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>warn</span><span class=p>(</span><span class=s>&#34;Redis configuration updated due to unhealthy nodes. Healthy nodes: {}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>healthyRedisNodeUrl</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 记录初始健康状态</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Initial Redis cluster health status: {}/{} nodes healthy&#34;</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=p>(</span><span class=n>allNodes</span><span class=p>.</span><span class=na>size</span><span class=p>()</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>size</span><span class=p>()),</span><span class=w> </span><span class=n>allNodes</span><span class=p>.</span><span class=na>size</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Unhealthy nodes: {}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=n>Boolean</span><span class=w> </span><span class=nf>isRedisClusterEnabled</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>isEnabled</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>environment</span><span class=p>.</span><span class=na>getProperty</span><span class=p>(</span><span class=s>&#34;自研包.cluster.enabled&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>isEnabled</span><span class=w> </span><span class=o>!=</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=n>Boolean</span><span class=p>.</span><span class=na>parseBoolean</span><span class=p>(</span><span class=n>isEnabled</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>Boolean</span><span class=p>.</span><span class=na>FALSE</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=n>String</span><span class=w> </span><span class=nf>getOriRedisNodeUrl</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 提取集群配置</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>clusterNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>environment</span><span class=p>.</span><span class=na>getProperty</span><span class=p>(</span><span class=s>&#34;spring.redis.cluster.nodes&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Redis cluster nodes configuration: {}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>clusterNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>clusterNodes</span><span class=w> </span><span class=o>!=</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=n>clusterNodes</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=kc>null</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=n>String</span><span class=w> </span><span class=nf>getAuthPassword</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 提取认证配置</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>auth</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>environment</span><span class=p>.</span><span class=na>getProperty</span><span class=p>(</span><span class=s>&#34;spring.redis.password&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>auth</span><span class=w> </span><span class=o>!=</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=n>auth</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=kc>null</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=n>List</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=nf>filterHealthyClusterNodes</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>oriRedisNodeUrl</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>List</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>healthyNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>ArrayList</span><span class=o>&lt;&gt;</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=o>[]</span><span class=w> </span><span class=n>clusterNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>oriRedisNodeUrl</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=n>Const</span><span class=p>.</span><span class=na>Symbol</span><span class=p>.</span><span class=na>Comma</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>for</span><span class=w> </span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=w> </span><span class=p>:</span><span class=w> </span><span class=n>clusterNodes</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>checkRedisNode</span><span class=p>(</span><span class=n>node</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>healthyNodes</span><span class=p>.</span><span class=na>add</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Redis cluster node {} is healthy&#34;</span><span class=p>,</span><span class=w> </span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=c1>// 节点不健康，记录到静态集合</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>add</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>log</span><span class=p>.</span><span class=na>warn</span><span class=p>(</span><span class=s>&#34;Redis cluster node {} is unhealthy, added to monitoring list&#34;</span><span class=p>,</span><span class=w> </span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>healthyNodes</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=nf>checkRedisNode</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=o>[]</span><span class=w> </span><span class=n>parts</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>node</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=s>&#34;:&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>host</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>parts</span><span class=o>[</span><span class=n>0</span><span class=o>]</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=kt>int</span><span class=w> </span><span class=n>port</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>parts</span><span class=p>.</span><span class=na>length</span><span class=w> </span><span class=o>&gt;</span><span class=w> </span><span class=n>1</span><span class=w> </span><span class=o>?</span><span class=w> </span><span class=n>Integer</span><span class=p>.</span><span class=na>parseInt</span><span class=p>(</span><span class=n>parts</span><span class=o>[</span><span class=n>1</span><span class=o>]</span><span class=p>)</span><span class=w> </span><span class=p>:</span><span class=w> </span><span class=n>6379</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>try</span><span class=w> </span><span class=p>(</span><span class=n>Jedis</span><span class=w> </span><span class=n>jedis</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>Jedis</span><span class=p>(</span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>,</span><span class=w> </span><span class=n>CONNECTION_TIMEOUT</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>String</span><span class=w> </span><span class=n>auth</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>getAuthPassword</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=o>!</span><span class=n>Objects</span><span class=p>.</span><span class=na>isNull</span><span class=p>(</span><span class=n>auth</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>jedis</span><span class=p>.</span><span class=na>auth</span><span class=p>(</span><span class=n>auth</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>String</span><span class=w> </span><span class=n>result</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>jedis</span><span class=p>.</span><span class=na>ping</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=s>&#34;PONG&#34;</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>result</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>Exception</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>warn</span><span class=p>(</span><span class=s>&#34;Redis node {}:{} check failed: {}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>,</span><span class=w> </span><span class=n>e</span><span class=p>.</span><span class=na>getMessage</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>updateRedisConfiguration</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>healthyRedisNodeUrl</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=p>,</span><span class=w> </span><span class=n>Object</span><span class=o>&gt;</span><span class=w> </span><span class=n>updatedProperties</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashMap</span><span class=o>&lt;&gt;</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 更新集群配置</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>healthyRedisNodeUrl</span><span class=w> </span><span class=o>!=</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>updatedProperties</span><span class=p>.</span><span class=na>put</span><span class=p>(</span><span class=s>&#34;athena.redis.url&#34;</span><span class=p>,</span><span class=w> </span><span class=n>healthyRedisNodeUrl</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>updatedProperties</span><span class=p>.</span><span class=na>put</span><span class=p>(</span><span class=s>&#34;spring.redis.cluster.nodes&#34;</span><span class=p>,</span><span class=w> </span><span class=n>healthyRedisNodeUrl</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 将更新后的配置添加到Environment的最高优先级</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>environment</span><span class=p>.</span><span class=na>getPropertySources</span><span class=p>().</span><span class=na>addFirst</span><span class=p>(</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=k>new</span><span class=w> </span><span class=n>MapPropertySource</span><span class=p>(</span><span class=s>&#34;redisHealthProperties&#34;</span><span class=p>,</span><span class=w> </span><span class=n>updatedProperties</span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Redis configuration has been updated with healthy nodes: {}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>healthyRedisNodeUrl</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 静态方法供其他组件访问
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=nf>getUnhealthyNodes</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashSet</span><span class=o>&lt;&gt;</span><span class=p>(</span><span class=n>unhealthyNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=nf>getAllNodes</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashSet</span><span class=o>&lt;&gt;</span><span class=p>(</span><span class=n>allNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=nf>isHealthCheckCompleted</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>healthCheckCompleted</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span><span class=lnt>142
+</span><span class=lnt>143
+</span><span class=lnt>144
+</span><span class=lnt>145
+</span><span class=lnt>146
+</span><span class=lnt>147
+</span><span class=lnt>148
+</span><span class=lnt>149
+</span><span class=lnt>150
+</span><span class=lnt>151
+</span><span class=lnt>152
+</span><span class=lnt>153
+</span><span class=lnt>154
+</span><span class=lnt>155
+</span><span class=lnt>156
+</span><span class=lnt>157
+</span><span class=lnt>158
+</span><span class=lnt>159
+</span><span class=lnt>160
+</span><span class=lnt>161
+</span><span class=lnt>162
+</span><span class=lnt>163
+</span><span class=lnt>164
+</span><span class=lnt>165
+</span><span class=lnt>166
+</span><span class=lnt>167
+</span><span class=lnt>168
+</span><span class=lnt>169
+</span><span class=lnt>170
+</span><span class=lnt>171
+</span><span class=lnt>172
+</span><span class=lnt>173
+</span><span class=lnt>174
+</span><span class=lnt>175
+</span><span class=lnt>176
+</span><span class=lnt>177
+</span><span class=lnt>178
+</span><span class=lnt>179
+</span><span class=lnt>180
+</span><span class=lnt>181
+</span><span class=lnt>182
+</span><span class=lnt>183
+</span><span class=lnt>184
+</span><span class=lnt>185
+</span><span class=lnt>186
+</span><span class=lnt>187
+</span><span class=lnt>188
+</span><span class=lnt>189
+</span><span class=lnt>190
+</span><span class=lnt>191
+</span><span class=lnt>192
+</span><span class=lnt>193
+</span><span class=lnt>194
+</span><span class=lnt>195
+</span><span class=lnt>196
+</span><span class=lnt>197
+</span><span class=lnt>198
+</span><span class=lnt>199
+</span><span class=lnt>200
+</span><span class=lnt>201
+</span><span class=lnt>202
+</span><span class=lnt>203
+</span><span class=lnt>204
+</span><span class=lnt>205
+</span><span class=lnt>206
+</span><span class=lnt>207
+</span><span class=lnt>208
+</span><span class=lnt>209
+</span><span class=lnt>210
+</span><span class=lnt>211
+</span><span class=lnt>212
+</span><span class=lnt>213
+</span><span class=lnt>214
+</span><span class=lnt>215
+</span><span class=lnt>216
+</span><span class=lnt>217
+</span><span class=lnt>218
+</span><span class=lnt>219
+</span><span class=lnt>220
+</span><span class=lnt>221
+</span><span class=lnt>222
+</span><span class=lnt>223
+</span><span class=lnt>224
+</span><span class=lnt>225
+</span><span class=lnt>226
+</span><span class=lnt>227
+</span><span class=lnt>228
+</span><span class=lnt>229
+</span><span class=lnt>230
+</span><span class=lnt>231
+</span><span class=lnt>232
+</span><span class=lnt>233
+</span><span class=lnt>234
+</span><span class=lnt>235
+</span><span class=lnt>236
+</span><span class=lnt>237
+</span><span class=lnt>238
+</span><span class=lnt>239
+</span><span class=lnt>240
+</span><span class=lnt>241
+</span><span class=lnt>242
+</span><span class=lnt>243
+</span><span class=lnt>244
+</span><span class=lnt>245
+</span><span class=lnt>246
+</span><span class=lnt>247
+</span><span class=lnt>248
+</span><span class=lnt>249
+</span><span class=lnt>250
+</span><span class=lnt>251
+</span><span class=lnt>252
+</span><span class=lnt>253
+</span><span class=lnt>254
+</span><span class=lnt>255
+</span><span class=lnt>256
+</span><span class=lnt>257
+</span><span class=lnt>258
+</span><span class=lnt>259
+</span><span class=lnt>260
+</span><span class=lnt>261
+</span><span class=lnt>262
+</span><span class=lnt>263
+</span><span class=lnt>264
+</span><span class=lnt>265
+</span><span class=lnt>266
+</span><span class=lnt>267
+</span><span class=lnt>268
+</span><span class=lnt>269
+</span><span class=lnt>270
+</span><span class=lnt>271
+</span><span class=lnt>272
+</span><span class=lnt>273
+</span><span class=lnt>274
+</span><span class=lnt>275
+</span><span class=lnt>276
+</span><span class=lnt>277
+</span><span class=lnt>278
+</span><span class=lnt>279
+</span><span class=lnt>280
+</span><span class=lnt>281
+</span><span class=lnt>282
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kn>package</span><span class=w> </span><span class=nn>open.ref.redis</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>自研包.JedisFactoryClusterImpl</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>自研包.RedisFactory</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>open.svc.dict.Const</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.slf4j.Logger</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.slf4j.LoggerFactory</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.beans.factory.annotation.Autowired</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.beans.factory.annotation.Value</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.scheduling.annotation.Scheduled</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>org.springframework.stereotype.Component</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>redis.clients.jedis.BinaryJedisCluster</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>redis.clients.jedis.Jedis</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>redis.clients.jedis.JedisCluster</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>redis.clients.jedis.JedisSlotBasedConnectionHandler</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>java.lang.reflect.Field</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kn>import</span><span class=w> </span><span class=nn>java.util.*</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * @author huqinuo
+</span></span></span><span class=line><span class=cl><span class=cm> * @version 1.0
+</span></span></span><span class=line><span class=cl><span class=cm> * @description Redis集群拓扑刷新器
+</span></span></span><span class=line><span class=cl><span class=cm> * @data 2025/12/1 13:41
+</span></span></span><span class=line><span class=cl><span class=cm> */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nd>@Component</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kd>class</span> <span class=nc>RedisClusterTopologyRefresher</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>Logger</span><span class=w> </span><span class=n>log</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>LoggerFactory</span><span class=p>.</span><span class=na>getLogger</span><span class=p>(</span><span class=n>RedisClusterTopologyRefresher</span><span class=p>.</span><span class=na>class</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>RedisNodeContext</span><span class=w> </span><span class=n>redisNodeContext</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=n>RedisFactory</span><span class=w> </span><span class=n>redisFactory</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@Value</span><span class=p>(</span><span class=s>&#34;${自研包密码}&#34;</span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=n>String</span><span class=w> </span><span class=n>auth</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 2分钟刷新一次
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=kt>long</span><span class=w> </span><span class=n>REFRESH_INTERVAL</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>2</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>60</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>1000</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 连接超时时间
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>static</span><span class=w> </span><span class=kd>final</span><span class=w> </span><span class=kt>int</span><span class=w> </span><span class=n>CONNECTION_TIMEOUT</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>5000</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 是否刷新中
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kd>volatile</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=n>isRefreshing</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@Autowired</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=nf>RedisClusterTopologyRefresher</span><span class=p>(</span><span class=n>RedisNodeContext</span><span class=w> </span><span class=n>redisNodeContext</span><span class=p>,</span><span class=w> </span><span class=n>RedisFactory</span><span class=w> </span><span class=n>redisFactory</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>this</span><span class=p>.</span><span class=na>redisNodeContext</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisNodeContext</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>this</span><span class=p>.</span><span class=na>redisFactory</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisFactory</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;RedisClusterTopologyRefresher initialized with {} unhealthy nodes&#34;</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>redisNodeContext</span><span class=p>.</span><span class=na>getUnhealthyNodeCount</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 定时刷新不健康节点的拓扑信息
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@Scheduled</span><span class=p>(</span><span class=n>fixedRate</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>REFRESH_INTERVAL</span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>refreshTopologyForUnhealthyNodes</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>isRefreshing</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Topology refresh is already in progress, skip this execution&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>//从单个节点获取集群信息，存在disconnected连接状态节点则为不健康</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>checkAllNodeIfExistUnhealthyNodes</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisNodeContext</span><span class=p>.</span><span class=na>getUnhealthyNodes</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>isEmpty</span><span class=p>())</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;No unhealthy nodes to refresh&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Starting topology refresh for {} unhealthy nodes: {}&#34;</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>unhealthyNodes</span><span class=p>.</span><span class=na>size</span><span class=p>(),</span><span class=w> </span><span class=n>String</span><span class=p>.</span><span class=na>join</span><span class=p>(</span><span class=s>&#34;,&#34;</span><span class=p>,</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=p>));</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>isRefreshing</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>recoveredNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashSet</span><span class=o>&lt;&gt;</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>for</span><span class=w> </span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=w> </span><span class=p>:</span><span class=w> </span><span class=n>unhealthyNodes</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>checkAndRefreshNode</span><span class=p>(</span><span class=n>node</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=n>recoveredNodes</span><span class=p>.</span><span class=na>add</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=c1>// 处理恢复的节点</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=o>!</span><span class=n>recoveredNodes</span><span class=p>.</span><span class=na>isEmpty</span><span class=p>())</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>handleRecoveredNodes</span><span class=p>(</span><span class=n>recoveredNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Topology refresh completed. Recovered {} nodes, Redis cluster refresh status:{}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>recoveredNodes</span><span class=p>.</span><span class=na>size</span><span class=p>(),</span><span class=w> </span><span class=n>getRefreshStatus</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>Exception</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>error</span><span class=p>(</span><span class=s>&#34;Error during topology refresh&#34;</span><span class=p>,</span><span class=w> </span><span class=n>e</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>finally</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>isRefreshing</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>checkAllNodeIfExistUnhealthyNodes</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>allNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisNodeContext</span><span class=p>.</span><span class=na>getAllNodes</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>oneNode</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>allNodes</span><span class=p>.</span><span class=na>iterator</span><span class=p>().</span><span class=na>next</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=o>[]</span><span class=w> </span><span class=n>parts</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>oneNode</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=s>&#34;:&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>host</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>parts</span><span class=o>[</span><span class=n>0</span><span class=o>]</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=kt>int</span><span class=w> </span><span class=n>port</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>parts</span><span class=p>.</span><span class=na>length</span><span class=w> </span><span class=o>&gt;</span><span class=w> </span><span class=n>1</span><span class=w> </span><span class=o>?</span><span class=w> </span><span class=n>Integer</span><span class=p>.</span><span class=na>parseInt</span><span class=p>(</span><span class=n>parts</span><span class=o>[</span><span class=n>1</span><span class=o>]</span><span class=p>)</span><span class=w> </span><span class=p>:</span><span class=w> </span><span class=n>6379</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>try</span><span class=w> </span><span class=p>(</span><span class=n>Jedis</span><span class=w> </span><span class=n>jedis</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>Jedis</span><span class=p>(</span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>,</span><span class=w> </span><span class=n>CONNECTION_TIMEOUT</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>jedis</span><span class=p>.</span><span class=na>auth</span><span class=p>(</span><span class=n>auth</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>String</span><span class=w> </span><span class=n>clusterNodes</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>jedis</span><span class=p>.</span><span class=na>clusterNodes</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Redis cluster nodes : {}&#34;</span><span class=p>,</span><span class=n>clusterNodes</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>String</span><span class=o>[]</span><span class=w> </span><span class=n>lines</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>clusterNodes</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=n>Const</span><span class=p>.</span><span class=na>Symbol</span><span class=p>.</span><span class=na>BlankLine</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>for</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>line</span><span class=p>:</span><span class=n>lines</span><span class=p>){</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=k>if</span><span class=p>(</span><span class=n>line</span><span class=p>.</span><span class=na>trim</span><span class=p>().</span><span class=na>isEmpty</span><span class=p>()){</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=k>continue</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>String</span><span class=o>[]</span><span class=w> </span><span class=n>lineParts</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>line</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=s>&#34;\\s+&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=k>if</span><span class=p>(</span><span class=n>lineParts</span><span class=p>.</span><span class=na>length</span><span class=o>&lt;</span><span class=n>8</span><span class=p>){</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=k>continue</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>String</span><span class=w> </span><span class=n>linkState</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>lineParts</span><span class=o>[</span><span class=n>7</span><span class=o>]</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=k>if</span><span class=p>(</span><span class=s>&#34;disconnected&#34;</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>linkState</span><span class=p>)){</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=n>String</span><span class=w> </span><span class=n>ipPortPart</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>lineParts</span><span class=o>[</span><span class=n>1</span><span class=o>]</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>ipPortPart</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=s>&#34;@&#34;</span><span class=p>)</span><span class=o>[</span><span class=n>0</span><span class=o>]</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Find unheanthy Redis node : {}&#34;</span><span class=p>,</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=n>redisNodeContext</span><span class=p>.</span><span class=na>addUnhealthyNode</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>Exception</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>error</span><span class=p>(</span><span class=s>&#34;Exist unhealthy Redis node&#34;</span><span class=p>,</span><span class=w> </span><span class=n>e</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>redisNodeContext</span><span class=p>.</span><span class=na>addUnhealthyNode</span><span class=p>(</span><span class=n>oneNode</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 检查并刷新单个节点
+</span></span></span><span class=line><span class=cl><span class=cm>     *
+</span></span></span><span class=line><span class=cl><span class=cm>     * @param node
+</span></span></span><span class=line><span class=cl><span class=cm>     * @return
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=nf>checkAndRefreshNode</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=o>[]</span><span class=w> </span><span class=n>parts</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>node</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=s>&#34;:&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>host</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>parts</span><span class=o>[</span><span class=n>0</span><span class=o>]</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=kt>int</span><span class=w> </span><span class=n>port</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>parts</span><span class=p>.</span><span class=na>length</span><span class=w> </span><span class=o>&gt;</span><span class=w> </span><span class=n>1</span><span class=w> </span><span class=o>?</span><span class=w> </span><span class=n>Integer</span><span class=p>.</span><span class=na>parseInt</span><span class=p>(</span><span class=n>parts</span><span class=o>[</span><span class=n>1</span><span class=o>]</span><span class=p>)</span><span class=w> </span><span class=p>:</span><span class=w> </span><span class=n>6379</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Checking node {}:{} for recovery&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 首先检查节点是否恢复</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=o>!</span><span class=n>checkNodeAvailability</span><span class=p>(</span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Node {}:{} is still unavailable&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Node {}:{} is available again, refreshing topology&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 尝试刷新拓扑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=kt>boolean</span><span class=w> </span><span class=n>refreshSuccess</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>refreshNodeTopology</span><span class=p>(</span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>refreshSuccess</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Successfully refreshed topology for recovered node: {}:{}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>warn</span><span class=p>(</span><span class=s>&#34;Node {}:{} is available but topology refresh failed&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 检查节点是否可用
+</span></span></span><span class=line><span class=cl><span class=cm>     *
+</span></span></span><span class=line><span class=cl><span class=cm>     * @param host
+</span></span></span><span class=line><span class=cl><span class=cm>     * @param port
+</span></span></span><span class=line><span class=cl><span class=cm>     * @return
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=nf>checkNodeAvailability</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=kt>int</span><span class=w> </span><span class=n>port</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>try</span><span class=w> </span><span class=p>(</span><span class=n>Jedis</span><span class=w> </span><span class=n>jedis</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>Jedis</span><span class=p>(</span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>,</span><span class=w> </span><span class=n>CONNECTION_TIMEOUT</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>jedis</span><span class=p>.</span><span class=na>auth</span><span class=p>(</span><span class=n>auth</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>String</span><span class=w> </span><span class=n>result</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>jedis</span><span class=p>.</span><span class=na>ping</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=s>&#34;PONG&#34;</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>result</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>Exception</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>warn</span><span class=p>(</span><span class=s>&#34;Node {}:{} availability check failed: {}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>,</span><span class=w> </span><span class=n>e</span><span class=p>.</span><span class=na>getMessage</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 刷新节点拓扑
+</span></span></span><span class=line><span class=cl><span class=cm>     *
+</span></span></span><span class=line><span class=cl><span class=cm>     * @param host
+</span></span></span><span class=line><span class=cl><span class=cm>     * @param port
+</span></span></span><span class=line><span class=cl><span class=cm>     * @return
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=nf>refreshNodeTopology</span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=kt>int</span><span class=w> </span><span class=n>port</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>try</span><span class=w> </span><span class=p>(</span><span class=n>Jedis</span><span class=w> </span><span class=n>jedis</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>Jedis</span><span class=p>(</span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>,</span><span class=w> </span><span class=n>CONNECTION_TIMEOUT</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>jedis</span><span class=p>.</span><span class=na>auth</span><span class=p>(</span><span class=n>auth</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=c1>// 验证节点确实是集群节点</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>String</span><span class=w> </span><span class=n>clusterInfo</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>jedis</span><span class=p>.</span><span class=na>clusterInfo</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=o>!</span><span class=n>clusterInfo</span><span class=p>.</span><span class=na>contains</span><span class=p>(</span><span class=s>&#34;cluster_state:ok&#34;</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>log</span><span class=p>.</span><span class=na>warn</span><span class=p>(</span><span class=s>&#34;Node {}:{} cluster state is not ok&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=k>return</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=c1>// 获取集群槽位信息</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>List</span><span class=o>&lt;</span><span class=n>Object</span><span class=o>&gt;</span><span class=w> </span><span class=n>slotInfo</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>jedis</span><span class=p>.</span><span class=na>clusterSlots</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>slotInfo</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=kc>null</span><span class=w> </span><span class=o>||</span><span class=w> </span><span class=n>slotInfo</span><span class=p>.</span><span class=na>isEmpty</span><span class=p>())</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>log</span><span class=p>.</span><span class=na>warn</span><span class=p>(</span><span class=s>&#34;Node {}:{} returned empty cluster slots&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=k>return</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Node {}:{} cluster slots info retrieved successfully&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=n>topologyRefresh</span><span class=p>(</span><span class=n>jedis</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>Exception</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>error</span><span class=p>(</span><span class=s>&#34;Failed to refresh topology for node {}:{}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>host</span><span class=p>,</span><span class=w> </span><span class=n>port</span><span class=p>,</span><span class=w> </span><span class=n>e</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 拓扑刷新
+</span></span></span><span class=line><span class=cl><span class=cm>     *
+</span></span></span><span class=line><span class=cl><span class=cm>     * @param jedis
+</span></span></span><span class=line><span class=cl><span class=cm>     * @return
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=nf>topologyRefresh</span><span class=p>(</span><span class=n>Jedis</span><span class=w> </span><span class=n>jedis</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>redisFactory</span><span class=w> </span><span class=k>instanceof</span><span class=w> </span><span class=n>JedisFactoryClusterImpl</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>Object</span><span class=w> </span><span class=n>obj</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisFactory</span><span class=p>.</span><span class=na>getObject</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>JedisCluster</span><span class=w> </span><span class=n>jedisCluster</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=p>(</span><span class=n>JedisCluster</span><span class=p>)</span><span class=w> </span><span class=n>obj</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>Field</span><span class=w> </span><span class=n>connectionHandlerField</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>BinaryJedisCluster</span><span class=p>.</span><span class=na>class</span><span class=p>.</span><span class=na>getDeclaredField</span><span class=p>(</span><span class=s>&#34;connectionHandler&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>connectionHandlerField</span><span class=p>.</span><span class=na>setAccessible</span><span class=p>(</span><span class=kc>true</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>Object</span><span class=w> </span><span class=n>connectionHandler</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>connectionHandlerField</span><span class=p>.</span><span class=na>get</span><span class=p>(</span><span class=n>jedisCluster</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>connectionHandler</span><span class=w> </span><span class=k>instanceof</span><span class=w> </span><span class=n>JedisSlotBasedConnectionHandler</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=n>JedisSlotBasedConnectionHandler</span><span class=w> </span><span class=n>handler</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=p>(</span><span class=n>JedisSlotBasedConnectionHandler</span><span class=p>)</span><span class=w> </span><span class=n>connectionHandler</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                    </span><span class=n>handler</span><span class=p>.</span><span class=na>renewSlotCache</span><span class=p>(</span><span class=n>jedis</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;Topology refresh triggered for recovered nodes&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>Exception</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>log</span><span class=p>.</span><span class=na>error</span><span class=p>(</span><span class=s>&#34;Failed to trigger topology refresh&#34;</span><span class=p>,</span><span class=w> </span><span class=n>e</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 处理恢复的节点
+</span></span></span><span class=line><span class=cl><span class=cm>     *
+</span></span></span><span class=line><span class=cl><span class=cm>     * @param recoveredNodes
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>handleRecoveredNodes</span><span class=p>(</span><span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span><span class=w> </span><span class=n>recoveredNodes</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 从上下文中移除恢复的节点</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>for</span><span class=w> </span><span class=p>(</span><span class=n>String</span><span class=w> </span><span class=n>node</span><span class=w> </span><span class=p>:</span><span class=w> </span><span class=n>recoveredNodes</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>redisNodeContext</span><span class=p>.</span><span class=na>removeUnhealthyNode</span><span class=p>(</span><span class=n>node</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>info</span><span class=p>(</span><span class=s>&#34;{} nodes recovered and removed from unhealthy list: {}&#34;</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=n>recoveredNodes</span><span class=p>.</span><span class=na>size</span><span class=p>(),</span><span class=w> </span><span class=n>String</span><span class=p>.</span><span class=na>join</span><span class=p>(</span><span class=s>&#34;,&#34;</span><span class=p>,</span><span class=w> </span><span class=n>recoveredNodes</span><span class=p>));</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 获取刷新状态报告
+</span></span></span><span class=line><span class=cl><span class=cm>     *
+</span></span></span><span class=line><span class=cl><span class=cm>     * @return
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=p>,</span><span class=w> </span><span class=n>Object</span><span class=o>&gt;</span><span class=w> </span><span class=nf>getRefreshStatus</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=p>,</span><span class=w> </span><span class=n>Object</span><span class=o>&gt;</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>HashMap</span><span class=o>&lt;&gt;</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>status</span><span class=p>.</span><span class=na>put</span><span class=p>(</span><span class=s>&#34;unhealthyNodes&#34;</span><span class=p>,</span><span class=w> </span><span class=n>redisNodeContext</span><span class=p>.</span><span class=na>getUnhealthyNodes</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>status</span><span class=p>.</span><span class=na>put</span><span class=p>(</span><span class=s>&#34;unhealthyNodeCount&#34;</span><span class=p>,</span><span class=w> </span><span class=n>redisNodeContext</span><span class=p>.</span><span class=na>getUnhealthyNodeCount</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>status</span><span class=p>.</span><span class=na>put</span><span class=p>(</span><span class=s>&#34;isRefreshing&#34;</span><span class=p>,</span><span class=w> </span><span class=n>isRefreshing</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>status</span><span class=p>.</span><span class=na>put</span><span class=p>(</span><span class=s>&#34;lastRefreshTime&#34;</span><span class=p>,</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>Date</span><span class=p>());</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>status</span><span class=p>.</span><span class=na>put</span><span class=p>(</span><span class=s>&#34;refreshInterval&#34;</span><span class=p>,</span><span class=w> </span><span class=n>REFRESH_INTERVAL</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>status</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=第二阶段长效解决拓扑管理>第二阶段：长效解决（拓扑管理）</h3><p><strong>方案</strong>：实现集群拓扑定期刷新机制</p><ol><li><strong>拓扑刷新器设计</strong>：<ul><li>刷新频率：每2分钟一次</li><li>刷新内容：集群节点状态、主从关系、slot分布</li><li>故障检测：自动识别并排除故障节点</li></ul></li><li><strong>架构改进</strong>：</li></ol><pre class=mermaid>
+  graph TB
+    subgraph "拓扑刷新架构"
+        A[应用程序集群] --> B[拓扑刷新服务]
+        B --> C[Redis集群]
+        B --> D[本地拓扑缓存]
+        A --> D
+    end
+</pre><ol><li><strong>关键特性</strong>：<ul><li>异步刷新，不影响主业务流程</li><li>增量更新，减少网络开销</li><li>监控告警，及时发现刷新异常</li></ul></li></ol><h2 id=经验教训与改进措施>经验教训与改进措施</h2><h3 id=配置管理改进>配置管理改进</h3><ol><li><strong>部署规范强化</strong><ul><li>强制约束：同一分片的主从节点必须跨数据中心部署</li><li>自动检查：部署时自动验证节点分布合理性</li><li>定期审计：每月进行集群配置合规性检查</li></ul></li><li><strong>配置版本控制</strong><ul><li>所有Redis配置变更纳入版本管理系统</li><li>演练操作必须包含回滚方案和验证步骤</li></ul></li></ol><h3 id=框架升级与优化>框架升级与优化</h3><ol><li><p><strong>客户端升级计划</strong></p><pre class=mermaid>
+  timeline
+    title Redis客户端升级路线图
+    section 短期
+     优化现有Jedis 2.9 : 健康检查及拓扑刷新
+    section 中期
+     评估并迁移到Jedis高版本 : 底层API不兼容
+    section 长期
+     应用设计需考虑redis集群状态 : 使用本地缓存或数据库代替
+</pre></li><li><p><strong>健壮性增强</strong></p><ul><li>实现状态检测连接策略</li><li>完善降级方案</li></ul></li></ol><h3 id=监控与告警完善>监控与告警完善</h3><ol><li><p><strong>新增监控指标</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 监控指标定义</span>
+</span></span><span class=line><span class=cl><span class=n>redis_cluster_health</span> <span class=o>=</span> <span class=n>Gauge</span><span class=p>(</span><span class=s1>&#39;redis_cluster_health&#39;</span><span class=p>,</span> <span class=s1>&#39;Redis集群健康状态&#39;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=n>redis_slot_coverage</span> <span class=o>=</span> <span class=n>Gauge</span><span class=p>(</span><span class=s1>&#39;redis_slot_coverage&#39;</span><span class=p>,</span> <span class=s1>&#39;Redis slot覆盖比例&#39;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=n>redis_node_distribution</span> <span class=o>=</span> <span class=n>Gauge</span><span class=p>(</span><span class=s1>&#39;redis_node_distribution&#39;</span><span class=p>,</span> <span class=s1>&#39;Redis节点分布合规性&#39;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=n>redis_topology_refresh_latency</span> <span class=o>=</span> <span class=n>Histogram</span><span class=p>(</span><span class=s1>&#39;redis_topology_refresh_latency&#39;</span><span class=p>,</span> <span class=s1>&#39;拓扑刷新延迟&#39;</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div></li><li><p><strong>告警规则优化</strong></p><ul><li>主节点同机房告警</li><li>slot未覆盖告警</li><li>拓扑刷新失败告警</li></ul></li></ol><h3 id=应急响应改进>应急响应改进</h3><ol><li><strong>预案完善</strong><ul><li>制定Redis集群部分不可用时的应急方案</li><li>明确降级场景和业务影响范围</li></ul></li><li><strong>演练常态化</strong><ul><li>每季度进行Redis故障切换演练</li><li>每年进行跨数据中心容灾演练</li></ul></li></ol><h2 id=总结>总结</h2><p>本次事件暴露出我们在Redis集群管理中的多个薄弱环节，包括历史操作遗留问题、客户端框架局限性、配置与业务需求的矛盾等。通过本次事件的处理，我们不仅解决了当前问题，更重要的是建立了一套完整的预防和改进机制。</p><p><strong>核心启示</strong>：</p><ol><li><strong>演练的真实性</strong>：演练必须尽可能模拟真实故障场景，并及时恢复</li><li><strong>配置的生命周期管理</strong>：所有配置变更必须有跟踪、有审计、有回滚</li><li><strong>客户端的健壮性</strong>：客户端必须能够处理集群部分故障的情况</li><li><strong>监控的全面性</strong>：监控不仅要关注服务状态，还要关注架构合规性</li></ol><p>我们将以此事件为契机，全面提升Redis集群的稳定性和可用性，确保金融业务的连续性和数据一致性。</p></section><footer class=article-footer><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Dec 16, 2025 00:00 UTC</span></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article class=has-image><a href=/p/%E4%B8%8D%E5%90%8C%E9%83%A8%E7%BD%B2%E6%A8%A1%E5%BC%8F%E7%9A%84%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF/><div class=article-image><img src=/redis.jpeg loading=lazy data-key data-hash=/redis.jpeg></div><div class=article-details><h2 class=article-title>不同部署模式的使用场景</h2></div></a></article><article class=has-image><a href=/p/redis%E4%BB%8B%E7%BB%8D/><div class=article-image><img src=/redis.jpeg loading=lazy data-key data-hash=/redis.jpeg></div><div class=article-details><h2 class=article-title>Redis介绍</h2></div></a></article></div></div></aside><div class=disqus-container><div id=disqus_thread></div><script>window.disqus_config=function(){},function(){if(["localhost","127.0.0.1"].indexOf(window.location.hostname)!=-1){document.getElementById("disqus_thread").innerHTML="Disqus comments not available by default when the website is previewed locally.";return}var t=document,e=t.createElement("script");e.async=!0,e.src="//hugo-theme-stack.disqus.com/embed.js",e.setAttribute("data-timestamp",+new Date),(t.head||t.body).appendChild(e)}()</script><noscript>Please enable JavaScript to view the <a href=https://disqus.com/?ref_noscript>comments powered by Disqus.</a></noscript><a href=https://disqus.com class=dsq-brlink>comments powered by <span class=logo-disqus>Disqus</span></a></div><style>.disqus-container{background-color:var(--card-background);border-radius:var(--card-border-radius);box-shadow:var(--shadow-l1);padding:var(--card-padding)}</style><script>window.addEventListener("onColorSchemeChange",e=>{typeof DISQUS=="object"&&DISQUS.reset({reload:!0})})</script><script type=module>
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+        </script><footer class=site-footer><section class=copyright>&copy;
+2022 -
+2025 Ccino的个人博客</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.32.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script type=module>
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({
+              startOnLoad: true,
+              theme: 'default',
+            });
+          </script><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

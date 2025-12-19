@@ -1,8 +1,9 @@
 ---
 title: "Redis介绍"
-date: 2025-12-16 00:00:00+0000
+date: 2022-03-14 15:23:16+0000
 description: "Redis基础介绍"
-image: redis.png
+image: redis.jpeg
+weight: 1
 categories: ["Redis"]
 ---
 

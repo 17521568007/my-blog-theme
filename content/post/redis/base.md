@@ -1,8 +1,9 @@
 ---
 title: "不同部署模式的使用场景"
-date: 2025-12-16 00:00:00+0000
+date: 2022-03-16 11:30:24+0000
 description: "记录下Redis的一些使用场景"
-image: redis.png
+image: redis.jpeg
+weight: 2
 categories: ["Redis"]
 ---
 
